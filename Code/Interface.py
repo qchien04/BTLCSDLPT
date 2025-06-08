@@ -58,6 +58,8 @@ def loadratings(ratingstablename, ratingsfilepath, openconnection):
     cur = con.cursor()
     import time
     start_time = time.time()
+
+    # Tạo bảng với các cột thừa 
     cur.execute(f"""
         CREATE TABLE IF NOT EXISTS {ratingstablename} (
             userid INTEGER,
@@ -69,9 +71,12 @@ def loadratings(ratingstablename, ratingsfilepath, openconnection):
             timestamp BIGINT
         );
     """)
+
+    # Chèn dữ liệu vào trong bảng 
     with open(ratingsfilepath, 'r') as infile:
         cur.copy_from(infile, ratingstablename, sep=':')
 
+    # Xóa bỏ các cột dư thừa
     cur.execute(f"""
         ALTER TABLE {ratingstablename}
         DROP COLUMN extra1,
@@ -81,6 +86,7 @@ def loadratings(ratingstablename, ratingsfilepath, openconnection):
     """)
     elapsed_time = time.time() - start_time
     print(f"loadratings executed in {elapsed_time:.2f} seconds")
+
     con.commit()
     cur.close()
 
@@ -172,16 +178,23 @@ def rangepartition(ratingstablename, numberofpartitions, openconnection):
     cur = openconnection.cursor()
     RANGE_TABLE_PREFIX = 'range_part'
     
+    # Tính kích thước chênh lệch cao nhất giữa các phân vùng
     range_size = 5.0 / numberofpartitions
     
+    # Tạo bảng meta data 
     create_metadata_table(openconnection)
+
+    # Chèn thông tin về phân vùng kiểu range vào bên trong bảng meta data
     cur.execute("""
         INSERT INTO partition_metadata (partition_type, partition_count, range_size)
         VALUES ('range', %s, %s)
     """, (numberofpartitions, range_size))
 
+    # Lặp để tạo và chèn các bản ghi vào trong bảng
     for i in range(numberofpartitions):
         min_rating = i * range_size
+
+        # Kiểm tra xem có phải là bảng cuối cùng hay không, bảng cuối giá trị cao nhất phải là 5
         max_rating = 5.0 if i == numberofpartitions - 1 else min_rating + range_size
         
         table_name = f"{RANGE_TABLE_PREFIX}{i}"
@@ -189,6 +202,7 @@ def rangepartition(ratingstablename, numberofpartitions, openconnection):
         condition = f"rating >= {min_rating} AND rating <= {max_rating}" if i == 0 \
             else f"rating > {min_rating} AND rating <= {max_rating}"
         
+        #Thực hiện lệnh SQL
         cur.execute(f"""
             CREATE TABLE {table_name} AS
             SELECT userid, movieid, rating
@@ -207,6 +221,7 @@ def rangeinsert(ratingstablename, userid, itemid, rating, openconnection):
     cur = openconnection.cursor()
     RANGE_TABLE_PREFIX = 'range_part'
     
+    # Lấy thông tin phân vùng kiểu range trong bảng meta data
     cur.execute("""
         SELECT partition_count, range_size 
         FROM partition_metadata 
@@ -220,19 +235,23 @@ def rangeinsert(ratingstablename, userid, itemid, rating, openconnection):
     
     partition_num = int(rating / range_size)
     
+    # Kiểm tra nếu chia hết thì phải lùi lại 1 bảng
     if rating % range_size == 0 and partition_num > 0:
         partition_num -= 1
     
+    #Chèn vào bảng chính trước
     cur.execute(f"""
         INSERT INTO {ratingstablename} (userid, movieid, rating)
         VALUES (%s, %s, %s)
     """, (userid, itemid, rating))
-    
+
+    # Chèn vào phân mảnh 
     partition_table = f"{RANGE_TABLE_PREFIX}{partition_num}"
     cur.execute(f"""
         INSERT INTO {partition_table} (userid, movieid, rating)
         VALUES (%s, %s, %s)
     """, (userid, itemid, rating))
+
     elapsed_time = time.time() - start_time
     print(f"ranginsert executed in {elapsed_time:.2f} seconds")
     openconnection.commit()
@@ -355,11 +374,13 @@ def roundrobininsert(ratingstablename, userid, itemid, rating, openconnection):
     cur = openconnection.cursor()
     RROBIN_TABLE_PREFIX = 'rrobin_part'
     
+    # Chèn bản ghi vào bảng chính trước
     cur.execute(f"""
         INSERT INTO {ratingstablename} (userid, movieid, rating)
         VALUES (%s, %s, %s)
     """, (userid, itemid, rating))
     
+    # Lấy thông tin phân vùng round robin đồng thời cập nhật trong cùng 1 truy vấn
     cur.execute("""
         UPDATE partition_metadata
         SET current_partition = (current_partition + 1) % partition_count
@@ -369,6 +390,7 @@ def roundrobininsert(ratingstablename, userid, itemid, rating, openconnection):
     """)
     old_partition, numberofpartitions = cur.fetchone()
     
+    #Chèn vào bảng phân mảnh
     partition_table = f"{RROBIN_TABLE_PREFIX}{old_partition}"
     cur.execute(f"""
         INSERT INTO {partition_table} (userid, movieid, rating)
@@ -389,6 +411,7 @@ def roundrobinpartition(ratingstablename, numberofpartitions, openconnection):
 
     create_metadata_table(openconnection)
 
+    #Tạo bảng tạm thời để lưu thông tin kèm số thứ tự hàng của các bản ghi 
     cur.execute(f"""
         CREATE TEMP TABLE temp_numbered AS
         SELECT
@@ -399,6 +422,7 @@ def roundrobinpartition(ratingstablename, numberofpartitions, openconnection):
         FROM {ratingstablename};
     """)
 
+    #Lặp tạo bảng đồng thời chèn luôn các bản ghi thỏa mãn
     for i in range(numberofpartitions):
         table_name = f"{RROBIN_TABLE_PREFIX}{i}"
         cur.execute(f"""
@@ -408,6 +432,7 @@ def roundrobinpartition(ratingstablename, numberofpartitions, openconnection):
             WHERE row_num % {numberofpartitions} = {i};
         """)
 
+    # Chèn vào bảng meta data thông tin phân vùng của round robin
     cur.execute(f"""
                     INSERT INTO partition_metadata (partition_type, partition_count, current_partition)
                     SELECT 'roundrobin', %s, COUNT(*) %% %s FROM temp_numbered
