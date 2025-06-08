@@ -234,7 +234,7 @@ def rangeinsert(ratingstablename, userid, itemid, rating, openconnection):
         VALUES (%s, %s, %s)
     """, (userid, itemid, rating))
     elapsed_time = time.time() - start_time
-    print(f"ranginsert (streamed) executed in {elapsed_time:.2f} seconds")
+    print(f"ranginsert executed in {elapsed_time:.2f} seconds")
     openconnection.commit()
     cur.close()
 

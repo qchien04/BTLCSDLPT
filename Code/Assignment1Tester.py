@@ -10,8 +10,8 @@ RROBIN_TABLE_PREFIX = 'rrobin_part'
 USER_ID_COLNAME = 'userid'
 MOVIE_ID_COLNAME = 'movieid'
 RATING_COLNAME = 'rating'
-INPUT_FILE_PATH = r"E:\BTLCSDLPT\Code\ratings.dat"
-ACTUAL_ROWS_IN_INPUT_FILE = 10000054  # Number of lines in the input file
+INPUT_FILE_PATH = r"E:\BTLCSDLPT\Code\test_data.dat"
+ACTUAL_ROWS_IN_INPUT_FILE = 20  # Number of lines in the input file
 
 import psycopg2
 import traceback
@@ -57,11 +57,6 @@ if __name__ == '__main__':
                 print("roundrobinpartition function fail")
 
             # ALERT:: Change the partition index according to your testing sequence.
-            [result, e] = testHelper.testroundrobininsert(MyAssignment, RATINGS_TABLE, 100, 1, 3, conn, '4')
-            if result :
-                print("roundrobininsert function pass!")
-            else:
-                print("roundrobininsert function fail!")
             [result, e] = testHelper.testroundrobininsert(MyAssignment, RATINGS_TABLE, 100, 1, 3, conn, '0')
             if result :
                 print("roundrobininsert function pass!")
@@ -73,6 +68,11 @@ if __name__ == '__main__':
             else:
                 print("roundrobininsert function fail!")
             [result, e] = testHelper.testroundrobininsert(MyAssignment, RATINGS_TABLE, 100, 1, 3, conn, '2')
+            if result :
+                print("roundrobininsert function pass!")
+            else:
+                print("roundrobininsert function fail!")
+            [result, e] = testHelper.testroundrobininsert(MyAssignment, RATINGS_TABLE, 100, 1, 3, conn, '3')
             if result :
                 print("roundrobininsert function pass!")
             else:
