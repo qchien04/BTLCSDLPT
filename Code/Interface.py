@@ -257,7 +257,7 @@ def rangeinsert(ratingstablename, userid, itemid, rating, openconnection):
     openconnection.commit()
     cur.close()
 
-def roundrobinpartition1(ratingstablename, numberofpartitions, openconnection):
+def roundrobinpartition3(ratingstablename, numberofpartitions, openconnection):
     import time
     cur = openconnection.cursor()
     RROBIN_TABLE_PREFIX = 'rrobin_part'
@@ -310,7 +310,7 @@ def roundrobinpartition1(ratingstablename, numberofpartitions, openconnection):
     elapsed_time = end_time - start_time
     print(f"roundrobinpartition executed in {elapsed_time:.2f} seconds")
 
-def roundrobinpartition3(ratingstablename, numberofpartitions, openconnection):
+def roundrobinpartition2(ratingstablename, numberofpartitions, openconnection):
     import time
     cur = openconnection.cursor()
     RROBIN_TABLE_PREFIX = 'rrobin_part'
@@ -335,7 +335,7 @@ def roundrobinpartition3(ratingstablename, numberofpartitions, openconnection):
             )
         """)
 
-    # ✅ Tạo bảng tạm chứa row_number 1 lần
+    # Tạo bảng tạm chứa row_number 1 lần
     cur.execute(f"""
         CREATE TEMP TABLE temp_numbered AS
         SELECT userid, movieid, rating,
@@ -343,7 +343,7 @@ def roundrobinpartition3(ratingstablename, numberofpartitions, openconnection):
         FROM {ratingstablename}
     """)
 
-    # ✅ Chia dữ liệu từ bảng tạm vào các bảng phân vùng
+    # Chia dữ liệu từ bảng tạm vào các bảng phân vùng
     for i in range(numberofpartitions):
         cur.execute(f"""
             INSERT INTO {RROBIN_TABLE_PREFIX}{i}
@@ -365,8 +365,7 @@ def roundrobinpartition3(ratingstablename, numberofpartitions, openconnection):
     cur.close()
 
     elapsed_time = time.time() - start_time
-    print(f"[Cách 2] roundrobinpartition executed in {elapsed_time:.2f} seconds")
-
+    print(f"roundrobinpartition executed in {elapsed_time:.2f} seconds")
 
 def roundrobininsert(ratingstablename, userid, itemid, rating, openconnection):
     import time
@@ -401,7 +400,6 @@ def roundrobininsert(ratingstablename, userid, itemid, rating, openconnection):
     print(f"rourobin insert executed in {elapsed_time:.2f} seconds")
     openconnection.commit()
     cur.close()
-
 
 def roundrobinpartition(ratingstablename, numberofpartitions, openconnection):
     import time
